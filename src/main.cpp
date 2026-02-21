@@ -1,13 +1,18 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdint>
+#include <print>
 #include <thread>
 
+#include "config.hpp"
+#include "spdlog/common.h"
 #include <spdlog/spdlog.h>
 
 #include "sense_hat.hpp"
 #include "timer.hpp"
 
+// TODO: Read these from an ini file
 constexpr uint32_t POLL_INTERVAL_MS = 1000;
 constexpr uint32_t EXIT_CHECK_INTERVAL_MS = 500;
 
@@ -24,11 +29,17 @@ namespace {
 } // namespace
 
 int main() {
-  spdlog::set_level(spdlog::level::debug);
+  Config config("config.ini");
+
+  spdlog::set_level(config.Logger.LogLevel);
   spdlog::info("Starting Sense application...");
 
   SenseHat senseHat;
-  senseHat.testHardware();
+
+  if (config.Sensor.RunHealthCheckOnStartup) {
+    spdlog::info("Running health check on startup...");
+    senseHat.testHardware();
+  }
 
   Timer timer([&]() { pollSenseHat(senseHat); }, POLL_INTERVAL_MS);
 
@@ -36,10 +47,6 @@ int main() {
   std::signal(SIGTERM, signalHandler);
   std::signal(SIGHUP, signalHandler);
   std::signal(SIGQUIT, signalHandler);
-  std::signal(SIGABRT, signalHandler);
-  std::signal(SIGSEGV, signalHandler);
-  std::signal(SIGFPE, signalHandler);
-  std::signal(SIGILL, signalHandler);
 
   timer.start();
 

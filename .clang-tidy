@@ -4,5 +4,6 @@ Checks: >
   performance-*,
   readability-*,
   modernize-*,
+  -modernize-use-trailing-return-type,
   clang-analyzer-*
 WarningsAsErrors: ""
