@@ -2,13 +2,11 @@
 
 #include <cstdint>
 
-namespace hts221
-{
+namespace hts221 {
   constexpr uint8_t ADDRESS = 0x5F;
   constexpr uint8_t DEVICE_ID = 0xBC;
 
-  namespace reg
-  {
+  namespace reg {
     constexpr uint8_t WHO_AM_I = 0x0F;
     constexpr uint8_t AV_CONF = 0x10;
     constexpr uint8_t CTRL_REG1 = 0x20;
@@ -32,10 +30,9 @@ namespace hts221
     constexpr uint8_t T0_OUT_H = 0x3D;
     constexpr uint8_t T1_OUT_L = 0x3E;
     constexpr uint8_t T1_OUT_H = 0x3F;
-  }
+  } // namespace reg
 
-  namespace sampling
-  {
+  namespace sampling {
     constexpr uint8_t AVGT_2 = 0x00;
     constexpr uint8_t AVGT_4 = 0x01;
     constexpr uint8_t AVGT_8 = 0x03;
@@ -53,5 +50,5 @@ namespace hts221
     constexpr uint8_t AVGH_128 = 0x05;
     constexpr uint8_t AVGH_256 = 0x06;
     constexpr uint8_t AVGH_512 = 0x07;
-  }
-}
+  } // namespace sampling
+} // namespace hts221

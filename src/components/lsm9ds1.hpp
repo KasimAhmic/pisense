@@ -2,15 +2,12 @@
 
 #include <cstdint>
 
-namespace lsm9ds1
-{
-  namespace gyro
-  {
+namespace lsm9ds1 {
+  namespace gyro {
     constexpr uint8_t ADDRESS = 0x6A;
     constexpr uint8_t DEVICE_ID = 0x68;
 
-    namespace reg
-    {
+    namespace reg {
 
       constexpr uint8_t ACT_THS = 0x04;
       constexpr uint8_t ACT_DUR = 0x05;
@@ -62,16 +59,14 @@ namespace lsm9ds1
       constexpr uint8_t INT_GEN_THS_ZH_G = 0x35;
       constexpr uint8_t INT_GEN_THS_ZL_G = 0x36;
       constexpr uint8_t INT_GEN_DUR_G = 0x37;
-    }
-  }
+    } // namespace reg
+  } // namespace gyro
 
-  namespace mag
-  {
+  namespace mag {
     constexpr uint8_t ADDRESS = 0x1C;
     constexpr uint8_t DEVICE_ID = 0x3D;
 
-    namespace reg
-    {
+    namespace reg {
 
       constexpr uint8_t OFFSET_X_REG_L_M = 0x05;
       constexpr uint8_t OFFSET_X_REG_H_M = 0x06;
@@ -96,6 +91,6 @@ namespace lsm9ds1
       constexpr uint8_t INT_SRC_M = 0x31;
       constexpr uint8_t INT_THS_L_M = 0x32;
       constexpr uint8_t INT_THS_H_M = 0x33;
-    }
-  }
-}
+    } // namespace reg
+  } // namespace mag
+} // namespace lsm9ds1
