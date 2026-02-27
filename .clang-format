@@ -1,7 +1,11 @@
 IndentWidth: 2
 UseTab: Never
 TabWidth: 2
-ColumnLimit: 130
+ColumnLimit: 120
+BreakConstructorInitializers: AfterColon
+BreakTemplateDeclarations: true
+PackConstructorInitializers: NextLineOnly
+IndentCaseLabels: true
 PenaltyBreakBeforeFirstCallParameter: 1
 PenaltyBreakAssignment: 1000000
 BinPackArguments: false
@@ -16,15 +20,6 @@ IncludeCategories:
   # C Standard library includes
   - Regex: "^<c[a-z0-9_]+>$"
     Priority: 2
-  # Windows SDK includes
-  - Regex: '^<windows\.h>'
-    Priority: 3
-  # Other Windows headers
-  - Regex: '^<(commctrl|shellapi|shlwapi|prsht|win(user|base|gdi|con|reg|inet|crypt)|.*win.*)\.h>$'
-    Priority: 4
-  # N-API includes
-  - Regex: '^<napi\.h>$'
-    Priority: 5
   # Project includes
   - Regex: ".*"
     Priority: 100

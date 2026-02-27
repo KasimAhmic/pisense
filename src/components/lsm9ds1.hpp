@@ -8,7 +8,6 @@ namespace lsm9ds1 {
     constexpr uint8_t DEVICE_ID = 0x68;
 
     namespace reg {
-
       constexpr uint8_t ACT_THS = 0x04;
       constexpr uint8_t ACT_DUR = 0x05;
       constexpr uint8_t INT_GEN_CFG_XL = 0x06;
@@ -67,7 +66,6 @@ namespace lsm9ds1 {
     constexpr uint8_t DEVICE_ID = 0x3D;
 
     namespace reg {
-
       constexpr uint8_t OFFSET_X_REG_L_M = 0x05;
       constexpr uint8_t OFFSET_X_REG_H_M = 0x06;
       constexpr uint8_t OFFSET_Y_REG_L_M = 0x07;

@@ -1,10 +1,12 @@
 #pragma once
 
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
 #include <unistd.h>
@@ -15,7 +17,8 @@
 namespace i2c {
   class Bus {
   public:
-    explicit Bus(std::string bus) : _bus(bus) {
+    explicit Bus(std::string bus) :
+        _bus(std::move(bus)) {
       spdlog::debug("Opening I2C bus: {}", this->_bus);
 
       this->_fd = ::open(this->_bus.c_str(), O_RDWR);
@@ -43,7 +46,8 @@ namespace i2c {
     Bus(const Bus &) = delete;
     Bus &operator=(const Bus &) = delete;
 
-    Bus(Bus &&other) noexcept : _bus(std::move(other._bus)), _fd(other._fd), _activeAddr(other._activeAddr) {
+    Bus(Bus &&other) noexcept :
+        _bus(std::move(other._bus)), _fd(other._fd), _activeAddr(other._activeAddr) {
       other._fd = -1;
       other._activeAddr = -1;
     }
@@ -96,11 +100,12 @@ namespace i2c {
 
   class Device {
   public:
-    Device(Bus &bus, std::string name, uint8_t addr) : _bus(bus), _name(name), _addr(addr) {}
+    Device(Bus &bus, std::string name, uint8_t addr) :
+        _bus(bus), _name(std::move(name)), _addr(addr) {}
 
-    const std::string &name() const { return this->_name; }
+    [[nodiscard]] const std::string &name() const { return this->_name; }
 
-    uint8_t readByte(uint8_t reg) const {
+    [[nodiscard]] uint8_t readByte(uint8_t reg) const {
       this->_bus.setAddress(this->_addr);
 
       if (::write(this->_bus.fd(), &reg, 1) != 1) {
@@ -128,7 +133,7 @@ namespace i2c {
       return value;
     }
 
-    int16_t readShort(uint8_t loReg, uint8_t hiReg) const {
+    [[nodiscard]] int16_t readShort(uint8_t loReg, uint8_t hiReg) const {
       const uint8_t low = this->readByte(loReg);
       const uint8_t high = this->readByte(hiReg);
 
@@ -140,9 +145,9 @@ namespace i2c {
     void writeByte(uint8_t reg, uint8_t value) const {
       this->_bus.setAddress(this->_addr);
 
-      uint8_t buffer[2] = {reg, value};
+      const std::array<uint8_t, 2> buffer = {reg, value};
 
-      if (::write(this->_bus.fd(), buffer, 2) != 2) {
+      if (::write(this->_bus.fd(), buffer.data(), 2) != 2) {
         spdlog::error("Failed to write byte to I2C device {} at address "
                       "0x{:02X}, register 0x{:02X}: {}",
                       this->_name,

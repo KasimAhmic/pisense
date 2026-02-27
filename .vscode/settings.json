@@ -1,14 +1,7 @@
 {
-  "emeraldwalk.runonsave": {
-    "commands": [
-      {
-        "match": ".*",
-        "cmd": "./deploy.sh"
-      }
-    ]
-  },
   "[cpp][c]": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "xaver.clang-format"
-  }
+  },
+  "cmake.revealLog": "error"
 }

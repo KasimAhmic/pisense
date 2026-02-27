@@ -1,0 +1,13 @@
+{
+  "format_on_save": "on",
+  "languages": {
+    "C++": {
+      "formatter": {
+        "external": {
+          "command": "clang-format",
+          "arguments": ["--style=file"],
+        },
+      },
+    },
+  },
+}

@@ -13,13 +13,21 @@ You will need CMake and a C++ compiler. I have tested this with GCC (G++) on Ras
 ```bash
 git clone --recurse-submodules https://github.com/KasimAhmic/pisense
 cd pisense
+mkdir build
 
-mkdir build && cd build
-
-cmake ..
-cmake --build build
+cmake --preset arm64
+cmake --build --preset build-arm64
 
 ./build/sense
+```
+
+If you're on a platform that doesn't have access to aarch64 components, you can use the provided build container and `ci.sh` script:
+
+```bash
+docker build -t pisense-builder .
+
+./scripts/ci.sh configure
+./scripts/ci.sh build
 ```
 
 You should start to see messages being logged to the console.

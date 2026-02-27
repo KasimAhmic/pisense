@@ -1,13 +1,17 @@
 #pragma once
 
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
+#include <mutex>
 #include <thread>
 
 class Timer {
 public:
-  Timer(const std::function<void()> &callback, const uint32_t interval)
-      : callback(callback), interval(interval), running(false) {}
+  Timer(const std::function<void()> &callback, const uint32_t interval) :
+      callback(callback), interval(interval), running(false) {}
   ~Timer() { this->stop(); }
 
   void start() {

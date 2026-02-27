@@ -1,64 +1,58 @@
 #include <atomic>
-#include <chrono>
 #include <csignal>
-#include <cstdint>
-#include <print>
-#include <thread>
+#include <cstdio>
+#include <string>
 
-#include "config.hpp"
-#include "spdlog/common.h"
+#include <argparse.hpp>
+#include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
-#include "sense_hat.hpp"
-#include "timer.hpp"
-
-// TODO: Read these from an ini file
-constexpr uint32_t POLL_INTERVAL_MS = 1000;
-constexpr uint32_t EXIT_CHECK_INTERVAL_MS = 500;
-
-void pollSenseHat(SenseHat &senseHat) {
-  float tempC = senseHat.readTemperature();
-  float tempF = senseHat.readTemperature(true);
-  spdlog::info("Current temperature: {:.2f}°C / {:.2f}°F", tempC, tempF);
-}
+#include "config.hpp"
+#include "pisense.hpp"
 
 namespace {
   std::atomic<bool> shouldExit{false};
+  std::atomic<int> exitSignal{0};
 
-  void signalHandler(int /*signal*/) noexcept { shouldExit.store(true, std::memory_order_relaxed); }
+  void signalHandler(int signal) noexcept {
+    shouldExit.store(true, std::memory_order_relaxed);
+    exitSignal.store(signal, std::memory_order_relaxed);
+  }
 } // namespace
 
-int main() {
-  Config config("config.ini");
-
-  spdlog::set_level(config.Logger.LogLevel);
-  spdlog::info("Starting Sense application...");
-
-  SenseHat senseHat;
-
-  if (config.Sensor.RunHealthCheckOnStartup) {
-    spdlog::info("Running health check on startup...");
-    senseHat.testHardware();
-  }
-
-  Timer timer([&]() { pollSenseHat(senseHat); }, POLL_INTERVAL_MS);
-
+int main(int argc, const char *argv[]) {
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, signalHandler);
   std::signal(SIGHUP, signalHandler);
   std::signal(SIGQUIT, signalHandler);
 
-  timer.start();
+  std::setvbuf(stdout, nullptr, _IOLBF, 0);
 
-  while (!shouldExit.load(std::memory_order_relaxed)) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(EXIT_CHECK_INTERVAL_MS));
+  argparse::ArgumentParser program("pisense", "1.0.0");
+  program.add_description("A Raspberry Pi application for reading sensor data from a Raspberry Pi Sense HAT.");
+  program.add_epilog("Created by Kasim Ahmic. Source code available at https://github.com/KasimAhmic/pisense");
+
+  program.add_argument("--once", "-o")
+      .help("polls the SenseHat one time, outputs the data, and exits")
+      .default_value(false)
+      .implicit_value(true);
+
+  program.add_argument("--config", "-c")
+      .help("path to the configuration file")
+      .default_value("config.ini")
+      .implicit_value(false);
+
+  program.parse_args(argc, argv);
+
+  const bool once = program.get<bool>("--once");
+
+  if (once) {
+    spdlog::set_level(spdlog::level::off);
   }
 
-  timer.stop();
+  Config config(program.get<std::string>("--config"));
 
-  spdlog::info("Exit requested, stopping timer...");
-  timer.stop();
+  PiSense app(config, shouldExit, exitSignal);
 
-  spdlog::info("Sense application closed");
-  return 0;
-}
+  return app.run(once);
+};
