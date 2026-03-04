@@ -2,43 +2,47 @@
 
 #include <array>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <expected>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
+#include <vector>
 #include <fcntl.h>
 #include <linux/i2c-dev.h>
+#include <linux/i2c.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
-#include <spdlog/spdlog.h>
-#include <sys/ioctl.h>
+#define TRY(expr)                                                                                                      \
+  ({                                                                                                                   \
+    auto _tmp_##__LINE__ = (expr);                                                                                     \
+    if (!_tmp_##__LINE__) {                                                                                            \
+      return std::unexpected(_tmp_##__LINE__.error());                                                                 \
+    }                                                                                                                  \
+    std::move(_tmp_##__LINE__).value();                                                                                \
+  })
 
 namespace i2c {
   class Bus {
   public:
     explicit Bus(std::string bus) :
         _bus(std::move(bus)) {
-      spdlog::debug("Opening I2C bus: {}", this->_bus);
 
       this->_fd = ::open(this->_bus.c_str(), O_RDWR);
 
       if (this->_fd < 0) {
-        spdlog::error("Failed to open I2C bus {}: {}", this->_bus, strerror(errno));
         throw std::runtime_error("Failed to open I2C bus");
       }
-
-      spdlog::debug("I2C bus {} opened successfully: fd={}", this->_bus, this->_fd);
     }
 
     ~Bus() noexcept {
       if (this->_fd >= 0) {
-        spdlog::debug("Closing I2C bus {}: fd={}", this->_bus, this->_fd);
 
         if (::close(this->_fd) < 0) {
-          spdlog::error("Failed to close I2C bus {}: fd={} | error={}", this->_bus, this->_fd, strerror(errno));
-        } else {
-          spdlog::debug("I2C bus {} closed successfully: fd={}", this->_bus, this->_fd);
+          // TODO: Figure out what to do here...
         }
       }
     }
@@ -72,24 +76,18 @@ namespace i2c {
 
     int fd() const noexcept { return this->_fd; }
 
-    void setAddress(uint8_t addr) const {
+    std::expected<void, std::error_code> setAddress(uint8_t addr) const {
       if (this->_activeAddr == static_cast<int>(addr)) {
-        return;
+        return {};
       }
 
-      spdlog::trace("Setting I2C device address to 0x{:02X} of fd={}", addr, this->_fd);
-
       if (::ioctl(this->_fd, I2C_SLAVE, addr) < 0) {
-        spdlog::error("Failed to set I2C device address to 0x{:02X} on {}: fd={} "
-                      "| error={}",
-                      addr,
-                      this->_bus,
-                      this->_fd,
-                      strerror(errno));
-        throw std::runtime_error("Failed to set I2C device address");
+        return std::unexpected(std::error_code(errno, std::system_category()));
       }
 
       this->_activeAddr = static_cast<int>(addr);
+
+      return {};
     }
 
   private:
@@ -105,57 +103,63 @@ namespace i2c {
 
     [[nodiscard]] const std::string &name() const { return this->_name; }
 
-    [[nodiscard]] uint8_t readByte(uint8_t reg) const {
-      this->_bus.setAddress(this->_addr);
+    virtual std::vector<std::pair<std::string, bool>> test() = 0;
 
-      if (::write(this->_bus.fd(), &reg, 1) != 1) {
-        spdlog::error("Failed to write register address 0x{:02X} to I2C device "
-                      "{} at address 0x{:02X}: {}",
-                      reg,
-                      this->_name,
-                      this->_addr,
-                      strerror(errno));
-        throw std::runtime_error("Failed to write register address to I2C device");
+  protected:
+    template <size_t N>
+    [[nodiscard]] std::expected<std::array<uint8_t, N>, std::error_code> readBytes(uint8_t reg) const {
+      TRY(this->_bus.setAddress(this->_addr));
+
+      std::array<uint8_t, N> buffer{};
+      uint8_t startReg = reg | 0x80; // TODO: Make this some constant somewhere
+
+      std::array<i2c_msg, 2> messages{
+          {{.addr = this->_addr, .flags = 0, .len = static_cast<uint16_t>(1), .buf = &startReg},
+           {.addr = this->_addr, .flags = I2C_M_RD, .len = static_cast<uint16_t>(N), .buf = buffer.data()}},
+      };
+
+      const i2c_rdwr_ioctl_data packets{.msgs = messages.data(), .nmsgs = static_cast<uint32_t>(messages.size())};
+
+      if (ioctl(this->_bus.fd(), I2C_RDWR, &packets) < 0) {
+        return std::unexpected(std::error_code(errno, std::system_category()));
       }
 
-      uint8_t value = 0;
+      return buffer;
+    }
 
-      if (::read(this->_bus.fd(), &value, 1) != 1) {
-        spdlog::error("Failed to read byte from I2C device {} at address "
-                      "0x{:02X}, register 0x{:02X}: {}",
-                      this->_name,
-                      this->_addr,
-                      reg,
-                      strerror(errno));
-        throw std::runtime_error("Failed to read byte from I2C device");
+    [[nodiscard]] std::expected<uint8_t, std::error_code> readByte(uint8_t reg) const {
+      const auto result = this->readBytes<1>(reg);
+
+      if (!result) {
+        return std::unexpected(result.error());
       }
 
-      return value;
+      return (*result)[0];
     }
 
-    [[nodiscard]] int16_t readShort(uint8_t loReg, uint8_t hiReg) const {
-      const uint8_t low = this->readByte(loReg);
-      const uint8_t high = this->readByte(hiReg);
+    [[nodiscard]] std::expected<int16_t, std::error_code> readShort(uint8_t reg) const {
+      const auto data = this->readBytes<2>(reg);
 
-      const uint16_t value = (static_cast<uint16_t>(high) << 8) | static_cast<uint16_t>(low);
+      if (!data) {
+        return std::unexpected(data.error());
+      }
 
-      return static_cast<int16_t>(value);
+      const std::array<uint8_t, 2> &bytes = *data;
+
+      const uint16_t combined = (uint16_t(bytes[1]) << 8) | uint16_t(bytes[0]);
+      return static_cast<int16_t>(combined);
     }
 
-    void writeByte(uint8_t reg, uint8_t value) const {
-      this->_bus.setAddress(this->_addr);
+    [[nodiscard]] std::expected<void, std::error_code> writeByte(uint8_t reg, uint8_t value) const {
+      TRY(this->_bus.setAddress(this->_addr));
 
       const std::array<uint8_t, 2> buffer = {reg, value};
 
       if (::write(this->_bus.fd(), buffer.data(), 2) != 2) {
-        spdlog::error("Failed to write byte to I2C device {} at address "
-                      "0x{:02X}, register 0x{:02X}: {}",
-                      this->_name,
-                      this->_addr,
-                      reg,
-                      strerror(errno));
-        throw std::runtime_error("Failed to write byte to I2C device");
+        return std::unexpected(std::error_code(errno, std::system_category()));
       }
+
+      return {};
     }
 
   private:
